@@ -134,7 +134,7 @@ _setup_global_logging()
 FLAZIO_CSV_HEADERS = [
     "MODEL", "ID", "REF", "CODE", "TYPE", "NAME", "DESCRIPTION",
     "STATUS", "VAT", "OPTIONS", "PRICE", "QUANTITY", "WEIGHT",
-    "CATEGORIES", "TAGS", "IMAGE", "BRAND",
+    "CATEGORIES", "TAGS", "IMAGE", "VISIBLE", "BRAND",
 ]
 
 # Estensioni documenti scaricabili
@@ -152,8 +152,7 @@ FONT_BLACKLIST = [
     "thai", "devanagari", "math", "-ext",
 ]
 
-# Numero massimo di pagine da scansionare (sicurezza anti-loop)
-MAX_PAGES = 60
+# Limite massimo di pagine rimosso per permettere la scansione completa del sito
 
 # Pagine processate in parallelo (3 è il trade-off ottimale: velocità vs stabilità)
 CONCURRENT_PAGES = 3
@@ -1201,6 +1200,15 @@ class FlazioImportAssistant:
             prod_id_raw = prod.get("id", "") or prod.get("urlPart", "") or page_url
             prod_id = f"PROD_{abs(hash(prod_id_raw)) % 100000:05d}"
 
+            # VISIBILITY mapping
+            is_visible = prod.get("visible", True)
+            if not is_visible:
+                visibility = "0"  # Nascosto
+            elif status == "instock":
+                visibility = "1"  # Disponibile
+            else:
+                visibility = "2"  # Non disponibile (ma visibile)
+
             return {
                 "MODEL":       "product",
                 "ID":          prod_id,
@@ -1218,6 +1226,7 @@ class FlazioImportAssistant:
                 "CATEGORIES":  cats_str,
                 "TAGS":        "",
                 "IMAGE":       img_url,
+                "VISIBLE":     visibility,
                 "BRAND":       brand,
             }
 
@@ -1580,6 +1589,7 @@ class FlazioImportAssistant:
             "CATEGORIES":  p_cats,
             "TAGS":        "",
             "IMAGE":       p_image,
+            "VISIBLE":     "1",
             "BRAND":       p_brand,
         }
 
@@ -2052,7 +2062,7 @@ class FlazioImportAssistant:
         """
         self.visited_urls.add(url)
         page_name = self._get_page_name(url)
-        print(f"\n🚀 [{len(self.visited_urls)}/{MAX_PAGES}] Pagina: {page_name}")
+        print(f"\n🚀 [Pagina {len(self.visited_urls)}] Pagina: {page_name}")
         print(f"   🔗 {url}")
 
         # Cartella immagini specifica per questa pagina
@@ -2706,7 +2716,7 @@ class FlazioImportAssistant:
             print(f"  🎯 FLAZIO IMPORT ASSISTANT — avviato su:")
             print(f"     {self.target_url}")
             print(f"  📁 Output → {self.root_dir}")
-            print(f"  ⚡ Download image worker: {DOWNLOAD_WORKERS} | Max pagine: {MAX_PAGES}")
+            print(f"  ⚡ Download image worker: {DOWNLOAD_WORKERS} | Max pagine: Illimitate")
             print("=" * 60 + "\n")
 
             self._load_sitemap()
@@ -2729,7 +2739,7 @@ class FlazioImportAssistant:
 
                 try:
                     # Loop sequenziale — visited_urls come anti-ciclo
-                    while self.pages_to_crawl and len(self.visited_urls) < MAX_PAGES:
+                    while self.pages_to_crawl:
                         next_url = self.pages_to_crawl.pop()
                         if next_url not in self.visited_urls:
                             self._process_page(next_url, context)
