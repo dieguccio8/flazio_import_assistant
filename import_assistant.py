@@ -2118,14 +2118,13 @@ class FlazioImportAssistant:
                     break
                 except Exception as nav_err:
                     is_dns = "ERR_NAME_NOT_RESOLVED" in str(nav_err)
-                    if is_dns and attempt_idx < len(nav_attempts) - 1:
-                        # Pausa progressiva prima del prossimo tentativo
-                        delay = 2 * (attempt_idx + 1)
-                        print(f"   ⏳ DNS non risolto, riprovo tra {delay}s...")
-                        _nav_time.sleep(delay)
-                        continue
-                    elif not is_dns and attempt_idx == 0:
-                        # Errore non-DNS al primo tentativo: prova domcontentloaded
+                    if attempt_idx < len(nav_attempts) - 1:
+                        if is_dns:
+                            # Pausa progressiva prima del prossimo tentativo
+                            delay = 2 * (attempt_idx + 1)
+                            print(f"   ⏳ DNS non risolto, riprovo tra {delay}s...")
+                            _nav_time.sleep(delay)
+                        # Per timeout o altri errori, continuiamo con il prossimo tentativo della lista
                         continue
                     else:
                         msg = f"Impossibile caricare: {nav_err}"

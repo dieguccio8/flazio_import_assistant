@@ -1,0 +1,61 @@
+2026-07-14 12:14:56,085 [WARNING] (Thread: ThreadPoolExecutor-0_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:14:56,127 [WARNING] (Thread: ThreadPoolExecutor-0_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:15:08,371 [WARNING] (Thread: ThreadPoolExecutor-1_3) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:15:08,372 [WARNING] (Thread: ThreadPoolExecutor-1_2) 404 Not Found [9c608a_6699ae5124db4b168dfd850b158574b1~mv2_6623.png]
+2026-07-14 12:15:08,372 [WARNING] (Thread: ThreadPoolExecutor-1_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:15:08,373 [WARNING] (Thread: ThreadPoolExecutor-1_4) 404 Not Found [9c608a_16a23998ebaa415faf576bd64d8944b2~mv2_3724.png]
+2026-07-14 12:15:08,373 [WARNING] (Thread: ThreadPoolExecutor-1_1) 404 Not Found [IMG-20240809-WA0008.jpg]
+2026-07-14 12:15:19,787 [WARNING] (Thread: ThreadPoolExecutor-2_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_6193.jpg]
+2026-07-14 12:15:19,787 [WARNING] (Thread: ThreadPoolExecutor-2_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_3361.jpg]
+2026-07-14 12:15:28,505 [WARNING] (Thread: ThreadPoolExecutor-3_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_3361.jpg]
+2026-07-14 12:15:28,509 [WARNING] (Thread: ThreadPoolExecutor-3_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_6193.jpg]
+2026-07-14 12:15:36,409 [WARNING] (Thread: ThreadPoolExecutor-4_2) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:15:36,412 [WARNING] (Thread: ThreadPoolExecutor-4_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:15:36,453 [WARNING] (Thread: ThreadPoolExecutor-4_1) 404 Not Found [Mutter.jpg]
+2026-07-14 12:15:45,335 [WARNING] (Thread: ThreadPoolExecutor-5_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:15:45,335 [WARNING] (Thread: ThreadPoolExecutor-5_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:15:54,054 [WARNING] (Thread: ThreadPoolExecutor-6_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_6193.jpg]
+2026-07-14 12:15:54,121 [WARNING] (Thread: ThreadPoolExecutor-6_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_3361.jpg]
+2026-07-14 12:16:01,604 [WARNING] (Thread: ThreadPoolExecutor-7_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:16:01,607 [WARNING] (Thread: ThreadPoolExecutor-7_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:16:09,934 [WARNING] (Thread: ThreadPoolExecutor-8_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_3361.jpg]
+2026-07-14 12:16:09,937 [WARNING] (Thread: ThreadPoolExecutor-8_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_6193.jpg]
+2026-07-14 12:16:17,103 [WARNING] (Thread: ThreadPoolExecutor-9_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:16:17,112 [WARNING] (Thread: ThreadPoolExecutor-9_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:16:24,817 [WARNING] (Thread: ThreadPoolExecutor-10_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:16:24,818 [WARNING] (Thread: ThreadPoolExecutor-10_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:16:31,795 [WARNING] (Thread: ThreadPoolExecutor-11_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:16:31,796 [WARNING] (Thread: ThreadPoolExecutor-11_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:16:40,284 [WARNING] (Thread: ThreadPoolExecutor-12_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_3361.jpg]
+2026-07-14 12:16:40,284 [WARNING] (Thread: ThreadPoolExecutor-12_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_6193.jpg]
+2026-07-14 12:16:49,138 [WARNING] (Thread: ThreadPoolExecutor-13_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_6193.jpg]
+2026-07-14 12:16:49,146 [WARNING] (Thread: ThreadPoolExecutor-13_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_3361.jpg]
+2026-07-14 12:16:56,464 [WARNING] (Thread: ThreadPoolExecutor-14_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-14 12:16:56,468 [WARNING] (Thread: ThreadPoolExecutor-14_4) 404 Not Found [9c608a_16a23998ebaa415faf576bd64d8944b2~mv2_3724.png]
+2026-07-14 12:16:56,469 [WARNING] (Thread: ThreadPoolExecutor-14_3) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:16:56,469 [WARNING] (Thread: ThreadPoolExecutor-14_2) 404 Not Found [9c608a_6699ae5124db4b168dfd850b158574b1~mv2_6623.png]
+2026-07-14 12:16:56,470 [WARNING] (Thread: ThreadPoolExecutor-14_1) 404 Not Found [IMG-20240809-WA0008.jpg]
+2026-07-14 12:17:04,564 [WARNING] (Thread: ThreadPoolExecutor-15_1) 404 Not Found [52a8aa_78ed5c307568413e87ea8e2766d7cfc7~mv2_2765.jpg]
+2026-07-14 12:17:04,565 [WARNING] (Thread: ThreadPoolExecutor-15_0) 404 Not Found [52a8aa_d45eb2c517d64da6b4ea45fd3b9a7f45~mv2_7780.jpg]
+2026-07-28 12:07:55,867 [ERROR] (Thread: MainThread) Impossibile caricare: Page.goto: Timeout 30000ms exceeded.
+Call log:
+  - navigating to "https://assemblage-m.com/", waiting until "load"
+Traceback (most recent call last):
+  File "/Users/ericadibella/Desktop/DIEGO/Flazio/FLAZIO_TOOL/flazio_import_assistan/import_assistant.py", line 2111, in _process_page
+    page.goto(try_nav_url, wait_until=wait_until, timeout=timeout)
+  File "/Users/ericadibella/Library/Python/3.9/lib/python/site-packages/playwright/sync_api/_generated.py", line 9612, in goto
+    self._sync(
+  File "/Users/ericadibella/Library/Python/3.9/lib/python/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+  File "/Users/ericadibella/Library/Python/3.9/lib/python/site-packages/playwright/_impl/_page.py", line 557, in goto
+    return await self._main_frame.goto(**locals_to_params(locals()))
+  File "/Users/ericadibella/Library/Python/3.9/lib/python/site-packages/playwright/_impl/_frame.py", line 156, in goto
+    await self._channel.send(
+  File "/Users/ericadibella/Library/Python/3.9/lib/python/site-packages/playwright/_impl/_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+  File "/Users/ericadibella/Library/Python/3.9/lib/python/site-packages/playwright/_impl/_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded.
+Call log:
+  - navigating to "https://assemblage-m.com/", waiting until "load"
+

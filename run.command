@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 "/Users/ericadibella/Desktop/DIEGO/Flazio/FLAZIO_TOOL/Flazio_Import_Assistant/import_assistant.py"
+python3 "/Users/ericadibella/Desktop/DIEGO/Flazio/FLAZIO_TOOL/flazio_import_assistan/import_assistant.py"
