@@ -150,6 +150,7 @@ IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg")
 FONT_BLACKLIST = [
     "cyrillic", "greek", "vietnamese", "arabic", "hebrew",
     "thai", "devanagari", "math", "-ext",
+    "w02", "w03", "w04", "w05", "w06", "w07", "w08", "w09", "w10", "w25"
 ]
 
 # Limite massimo di pagine rimosso per permettere la scansione completa del sito
@@ -229,6 +230,7 @@ class FlazioImportAssistant:
         )
         self.fonts_dir: Path    = self.root_dir / "Fonts"
         self.images_dir: Path   = self.root_dir / "Images"
+        self.videos_dir: Path   = self.root_dir / "Video"
         self.documents_dir: Path = self.root_dir / "Documents"
         self.text_dir: Path     = self.root_dir / "Text"
         self.csv_path: Path     = self.root_dir / f"products_{self.site_name}.csv"
@@ -238,6 +240,8 @@ class FlazioImportAssistant:
         self.visited_urls: set   = set()               # URL già visitati (anti-ciclo)
         self.scraped_css: set    = set()               # CSS già processati
         self.downloaded_font_keys: set = set()         # Font già scaricati (anti-dup)
+        self.downloaded_videos: set = set()            # Video già scaricati (anti-dup)
+        self.google_fonts_queried: set = set()         # Famiglie già cercate su Google Fonts
         self.detected_products: list   = []            # Prodotti rilevati per il CSV
 
         # --- Thread safety per elaborazione parallela ---
@@ -252,6 +256,7 @@ class FlazioImportAssistant:
             "images_downloaded": 0,  # Immagini scaricate (Playwright + HTTP)
             "images_failed": 0,     # Immagini con 404 / errore
             "images_cached": 0,     # Immagini già in cache (skip)
+            "videos_downloaded": 0, # Video scaricati
             "fonts_converted": 0,   # Font convertiti in TTF/OTF
             "fonts_duplicated": 0,  # Font duplicati ignorati
             "documents_downloaded": 0,  # Documenti (PDF, DOC, ecc.)
@@ -724,8 +729,9 @@ class FlazioImportAssistant:
         """
         try:
             # Raccoglie gli URL font dalle regole @font-face dei fogli di stile
-            font_urls: list = page.evaluate("""() => {
+            data: dict = page.evaluate("""() => {
                 const urls = [];
+                const families = new Set();
                 for (const sheet of document.styleSheets) {
                     try {
                         for (const rule of sheet.cssRules) {
@@ -747,13 +753,41 @@ class FlazioImportAssistant:
                 document.querySelectorAll(
                     'link[as="font"], link[href*=".woff"], link[href*=".ttf"]'
                 ).forEach(l => { if (l.href) urls.push(l.href); });
-                return urls;
+                
+                // Raccoglie le famiglie usate nel DOM (es. font di sistema / Google Fonts non caricati con @font-face)
+                document.querySelectorAll('*').forEach(el => {
+                    const ff = window.getComputedStyle(el).fontFamily;
+                    if(ff) {
+                        ff.split(',').forEach(f => {
+                            let cleanF = f.replace(/[\"']/g, '').trim();
+                            if(cleanF) families.add(cleanF);
+                        });
+                    }
+                });
+                
+                return { "urls": urls, "families": Array.from(families) };
             }""")
+            font_urls = data.get("urls", [])
+            dom_families = data.get("families", [])
         except Exception as exc:
             msg = f"Errore estrazione font JS: {exc}"
             print(f"   ⚠️  {msg}")
             logger.warning(msg, exc_info=True)
             font_urls = []
+            dom_families = []
+            
+        import threading
+        # Interroga Google Fonts per ogni famiglia rilevata nel DOM (es. Verdana, Roboto, ecc.)
+        for family in dom_families:
+            if family.lower() in ("sans-serif", "serif", "monospace", "cursive", "fantasy", "system-ui", "inherit", "initial", "unset"):
+                continue
+            if family not in self.google_fonts_queried:
+                self.google_fonts_queried.add(family)
+                threading.Thread(
+                    target=self._fetch_google_font_weights,
+                    args=(family,),
+                    daemon=False
+                ).start()
 
 
         all_font_urls = set(font_urls) | intercepted_font_urls
@@ -785,6 +819,10 @@ class FlazioImportAssistant:
         """
         if not family:
             return "Unknown"
+            
+        # Rimuove prefissi tipici generati dai CMS (es. "c-", "font_")
+        import re
+        family = re.sub(r"^(c-|font_|f-|w-|\d+_)", "", family, flags=re.IGNORECASE)
         
         # Pulisce spazi, trattini e underscore per lavorare su blocchi omogenei
         clean = family.replace("_", " ").replace("-", " ")
@@ -836,10 +874,11 @@ class FlazioImportAssistant:
             
         return result
 
-    def _convert_and_organize_font(self, font_path: Path) -> None:
+    def _convert_and_organize_font(self, font_path: Path, is_from_google_fonts: bool = False) -> None:
         """
         Converte woff/woff2 in TTF, estrae metadati (nameID 1 e 4),
         organizza in sottocartelle per famiglia ed elimina il file temporaneo.
+        Se non proviene da Google Fonts, tenta di scaricare i pesi extra.
         """
         try:
             from fontTools.ttLib import TTFont as _TTFont
@@ -924,13 +963,74 @@ class FlazioImportAssistant:
             if not font_family:
                 font_family = real_name
 
-            # Sanitizzazione dei nomi estratti con normalizzazione della famiglia
-            real_name   = self._sanitize_name(real_name)
+            # Pulizia aggressiva del nome originale (es. rimuove "c-", "font_", ecc.)
+            import re
+            clean_real_name = re.sub(r"^(c-|font_|f-|w-|\d+_)", "", real_name, flags=re.IGNORECASE)
+
+            # 1. Normalizziamo la famiglia prima
             font_family = self._normalize_font_family(font_family)
             font_family = self._sanitize_name(font_family)
+            friendly_family = font_family.replace("_", " ").title()
+
+            # 2. Deduciamo lo stile dal nome originale
+            orig_lower = clean_real_name.lower()
+            is_italic = "italic" in orig_lower or "it" in orig_lower.split("_")
+            weight = "Regular"
+            if "bold" in orig_lower or "bd" in orig_lower.split("_") or "75" in orig_lower:
+                weight = "Bold"
+            elif "medium" in orig_lower or "md" in orig_lower.split("_") or "65" in orig_lower:
+                weight = "Medium"
+            elif "light" in orig_lower or "45" in orig_lower:
+                weight = "Light"
+            elif "thin" in orig_lower:
+                weight = "Thin"
+            elif "black" in orig_lower or "heavy" in orig_lower:
+                weight = "Black"
+
+            suffix = weight
+            if is_italic:
+                if weight == "Regular":
+                    suffix = "Italic"
+                else:
+                    suffix = f"{weight}_Italic"
+
+            # 3. Costruiamo il friendly_name standardizzato per evitare duplicati logici (es. due bold diversi)
+            if suffix == "Regular":
+                friendly_name = friendly_family
+            else:
+                friendly_name = f"{friendly_family} {suffix.replace('_', ' ')}"
+
+            real_name = self._sanitize_name(friendly_name)
+
+            # Sovrascrive i metadati TTF in modo che Flazio legga il nome corretto
+            if "name" in font_obj and not is_from_google_fonts:
+                ps_family = friendly_family.replace(" ", "")
+                ps_subfamily = friendly_name.replace(friendly_family, "").strip().replace(" ", "")
+                if not ps_subfamily:
+                    ps_subfamily = "Regular"
+                ps_name = f"{ps_family}-{ps_subfamily}"
+                
+                for record in font_obj["name"].names:
+                    if record.nameID in (1, 4, 6):
+                        if record.nameID == 4:
+                            new_text = friendly_name
+                        elif record.nameID == 1:
+                            new_text = friendly_family
+                        elif record.nameID == 6:
+                            new_text = ps_name
+                        else:
+                            continue
+                            
+                        try:
+                            if record.platformID == 3:
+                                record.string = new_text.encode('utf-16-be')
+                            else:
+                                record.string = new_text.encode('mac_roman', errors='replace')
+                        except Exception:
+                            pass
 
             # Anti-duplicato globale (basato sul nome reale del font)
-            if real_name in self.downloaded_font_keys:
+            if real_name in self.downloaded_font_keys and not is_from_google_fonts:
                 font_obj.close()
                 if font_path.exists():
                     font_path.unlink()
@@ -938,7 +1038,6 @@ class FlazioImportAssistant:
                 print(f"   ♻️  Font duplicato ignorato: {real_name}")
                 return
 
-            # Cartella famiglia: Fonts/[FamigliaFont]/
             # Rileva se contiene tracciati CFF (caratteristici di OpenType .otf)
             is_cff = "CFF " in font_obj or "CFF2" in font_obj
             ext = ".otf" if is_cff else ".ttf"
@@ -950,7 +1049,7 @@ class FlazioImportAssistant:
             dest_path = family_dir / f"{real_name}{ext}"
 
             # Anti-duplicato fisico
-            if dest_path.exists():
+            if dest_path.exists() and not is_from_google_fonts:
                 font_obj.close()
                 if font_path.exists():
                     font_path.unlink()
@@ -968,14 +1067,29 @@ class FlazioImportAssistant:
                 self.stats["fonts_converted"] += 1
                 print(f"   🔤 Font convertito → [{font_family}]: {real_name}{ext}")
             else:
-                # TTF/OTF già decompresso: sposta nella cartella famiglia
-                font_obj.close()
+                if not is_from_google_fonts:
+                    # TTF/OTF locale decompresso: sovrascrive metadati e salva
+                    font_obj.save(str(dest_path))
+                    font_obj.close()
+                else:
+                    # TTF nativo da Google Fonts: chiude e sposta l'originale intatto
+                    font_obj.close()
+                
                 if font_path != dest_path:
                     if font_path.exists():
-                        font_path.rename(dest_path)
+                        import shutil
+                        shutil.move(str(font_path), str(dest_path))
                 print(f"   💎 Font organizzato → [{font_family}]: {real_name}{ext}")
 
             self.downloaded_font_keys.add(real_name)
+
+            if not is_from_google_fonts and font_family not in self.google_fonts_queried:
+                self.google_fonts_queried.add(font_family)
+                threading.Thread(
+                    target=self._fetch_google_font_weights,
+                    args=(font_family,),
+                    daemon=False
+                ).start()
 
         except Exception as exc:
             msg = f"Errore organizzazione font [{font_path.name}]: {exc}"
@@ -986,6 +1100,47 @@ class FlazioImportAssistant:
                 font_obj.close()
             except Exception:
                 pass
+
+    def _fetch_google_font_weights(self, family: str) -> None:
+        """
+        Interroga Google Fonts per recuperare tutti i pesi (100-900) e stili (italic)
+        di una determinata famiglia. Se esiste, scarica i .woff e li converte in .ttf
+        riutilizzando _convert_and_organize_font.
+        """
+        # Google Fonts CSS2 API è case-sensitive, richiede nomi in Title Case (es. Verdana non verdana)
+        query_family = family.title().replace("_", "+").replace(" ", "+")
+        
+        # Google Fonts restituisce 400 se si richiede un peso non supportato dal font (es. Verdana non ha il peso 100).
+        # Implementiamo una strategia di fallback: proviamo tutte le varianti, poi scendiamo a quelle standard, ecc.
+        weight_fallbacks = [
+            ":ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900",
+            ":ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700",
+            ":ital,wght@0,400;0,700;1,400;1,700",
+            ":ital,wght@0,400;1,400",
+            "" # Senza specificare pesi, restituisce il default (di solito 400)
+        ]
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; U; Android 4.1.1; en-gb; Build/KLP) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Safari/534.30"
+        }
+        
+        for weight_query in weight_fallbacks:
+            url = f"https://fonts.googleapis.com/css2?family={query_family}{weight_query}&display=swap"
+            try:
+                resp = requests.get(url, headers=headers, timeout=15)
+                if resp.status_code == 200:
+                    urls = set(re.findall(r"url\((https://[^)]+)\)", resp.text))
+                    if urls:
+                        print(f"   🌐 Google Fonts: scarico {len(urls)} varianti per {family}...")
+                        for idx, ttf_url in enumerate(urls):
+                            filename = f"tmp_gf_{family}_{idx}.ttf"
+                            if self._download_file(ttf_url, self.fonts_dir, filename):
+                                tmp_path = self.fonts_dir / filename
+                                if tmp_path.exists():
+                                    self._convert_and_organize_font(tmp_path, is_from_google_fonts=True)
+                    break # Successo, esce dal loop dei fallback
+            except Exception as exc:
+                logger.warning(f"Errore Google Fonts API per {family} (query {weight_query}): {exc}")
 
     # -----------------------------------------------------------------------
     # MODULO DOCUMENTI: _scrape_documents()
@@ -1024,6 +1179,82 @@ class FlazioImportAssistant:
 
 
     # -----------------------------------------------------------------------
+    # MODULO VIDEO: _scrape_videos()
+    # -----------------------------------------------------------------------
+
+    def _scrape_videos(self, page: "Page", page_url: str, page_name: str) -> None:
+        """
+        Scansiona la pagina alla ricerca di tag <video> e <wix-video>.
+        Estrae le URL dei video (alla massima risoluzione se disponibili)
+        e le scarica nella cartella Video/[NomePagina].
+        """
+        page_videos_dir = self.videos_dir / page_name
+        
+        # 1. Scraping tag <video> standard
+        try:
+            video_elements = page.query_selector_all("video")
+            for v_el in video_elements:
+                src = v_el.get_attribute("src")
+                if not src:
+                    # Controlla eventuali <source> all'interno
+                    sources = v_el.query_selector_all("source")
+                    for s_el in sources:
+                        s_src = s_el.get_attribute("src")
+                        if s_src:
+                            src = s_src
+                            break
+                if src:
+                    full_url = urljoin(page_url, src).split("?")[0]
+                    if full_url in self.downloaded_videos:
+                        continue
+                    
+                    filename = Path(urlparse(full_url).path).name
+                    if not filename:
+                        filename = f"video_{len(self.downloaded_videos)}.mp4"
+                    
+                    if self._download_file(full_url, page_videos_dir, filename):
+                        self.downloaded_videos.add(full_url)
+                        self.stats["videos_downloaded"] += 1
+                        print(f"   🎥 Video standard scaricato: {filename}")
+        except Exception as exc:
+            logger.warning(f"Errore nello scraping dei tag <video>: {exc}")
+
+        # 2. Scraping tag <wix-video> (specifici di Wix)
+        try:
+            import json
+            wix_video_elements = page.query_selector_all("wix-video")
+            for w_el in wix_video_elements:
+                data_info = w_el.get_attribute("data-video-info")
+                if data_info:
+                    try:
+                        info = json.loads(data_info)
+                        qualities = info.get("qualities", [])
+                        if qualities:
+                            # Prende la qualità più alta (tipicamente l'ultimo elemento o '1080p')
+                            best_quality = sorted(qualities, key=lambda q: q.get("size", 0), reverse=True)[0]
+                            url_path = best_quality.get("url")
+                            if url_path:
+                                if not url_path.startswith("http"):
+                                    # Wix ospita i video su video.wixstatic.com
+                                    full_url = "https://video.wixstatic.com/" + url_path
+                                else:
+                                    full_url = url_path
+                                
+                                if full_url in self.downloaded_videos:
+                                    continue
+                                
+                                filename = Path(urlparse(full_url).path).name
+                                if not filename:
+                                    filename = f"wix_video_{len(self.downloaded_videos)}.mp4"
+                                
+                                if self._download_file(full_url, page_videos_dir, filename):
+                                    self.downloaded_videos.add(full_url)
+                                    self.stats["videos_downloaded"] += 1
+                                    print(f"   🎥 Video Wix ({best_quality.get('quality')}) scaricato: {filename}")
+                    except Exception as e:
+                        logger.warning(f"Errore parsing data-video-info wix-video: {e}")
+        except Exception as exc:
+            logger.warning(f"Errore nello scraping dei tag <wix-video>: {exc}")    # -----------------------------------------------------------------------
     # MODULO TESTI: _save_text()
     # -----------------------------------------------------------------------
 
@@ -2067,6 +2298,7 @@ class FlazioImportAssistant:
 
         # Cartella immagini specifica per questa pagina
         page_images_dir = self.images_dir / page_name
+        page_images_dir.mkdir(parents=True, exist_ok=True)
 
         # ── Network Interception: usa RESPONSE (non request) ─────────────────
         # 'response' cattura URL reali dopo redirect, solo immagini con HTTP 200/206
@@ -2183,6 +2415,7 @@ class FlazioImportAssistant:
                 intercepted_fonts_snapshot = set(list(intercepted_font_urls))
             self._scrape_fonts(page, url, intercepted_fonts_snapshot)  # Font → TTF/OTF
             self._scrape_documents(page, url, page_name)  # PDF, DOC, ecc.
+            self._scrape_videos(page, url, page_name)     # Video e wix-video
             self._save_text(BeautifulSoup(html_content, "html.parser"), page_name)
 
             # ── Wix Stores: estrai prodotti e inietta pagine prodotto ────────
@@ -2245,6 +2478,7 @@ class FlazioImportAssistant:
         """
         downloaded_count = 0
         seen_names: set = set()
+        seen_normalized: set = set()
 
         for raw_url in url_set:
             try:
@@ -2256,6 +2490,11 @@ class FlazioImportAssistant:
 
                 # URL normalizzato (per Wix: base senza /v1/fill/)
                 normalized = self._normalize_wix_url(clean_url)
+                
+                # Se abbiamo già processato questa immagine base in questa pagina, skippa (no _NNNN clone)
+                if normalized in seen_normalized:
+                    continue
+                seen_normalized.add(normalized)
 
                 # Verifica che abbia un'estensione immagine o sia un CDN noto
                 parsed_path = urlparse(normalized).path
@@ -2283,7 +2522,7 @@ class FlazioImportAssistant:
                 if not Path(img_name).suffix:
                     img_name += ext
 
-                # Anti-duplicato per nome nella pagina
+                # Anti-duplicato per nome nella pagina (immagini DIVERSE con stesso nome)
                 if img_name in seen_names:
                     stem   = Path(img_name).stem
                     suffix = Path(img_name).suffix
@@ -2292,7 +2531,7 @@ class FlazioImportAssistant:
 
                 dest_path = dest_dir / img_name
 
-                # Se già scaricato in sessione, copia il file locale per questa pagina
+                # Se già scaricato in un'ALTRA pagina in sessione, copia il file locale per QUESTA pagina
                 with self._lock:
                     if normalized in self.downloaded_files:
                         existing_path = self.downloaded_files[normalized]
@@ -2309,10 +2548,18 @@ class FlazioImportAssistant:
                             self.stats["images_cached"] += 1
                         continue
 
+                dest_path = dest_dir / img_name
+
+                # Se l'immagine non è in cache, ma il NOME FILE esiste già (immagini diverse con stesso nome)
+                # Appendi un hash per evitare sovrascritture di file estranei
                 if dest_path.exists():
-                    with self._lock:
-                        self.downloaded_files[normalized] = dest_path
-                    continue
+                    stem   = Path(img_name).stem
+                    suffix = Path(img_name).suffix
+                    img_name = f"{stem}_{abs(hash(normalized)) % 9999}{suffix}"
+                    dest_path = dest_dir / img_name
+                    
+                    if dest_path.exists():
+                        continue # Fallback di sicurezza se esiste ancora
 
                 # Download via Playwright (raw_url preserva i parametri originali)
                 # che il browser ha già usato con successo
@@ -2551,7 +2798,8 @@ class FlazioImportAssistant:
         # --- Fase 1: preparazione lista URL da scaricare ---
         tasks: list = []          # (full_url, img_name, dest_dir)
         seen_names: set = set()   # Anti-duplicato per nome nella pagina corrente
-
+        seen_full_urls: set = set() # Per evitare duplicati in tasks
+        
         # CDN che servono immagini senza estensione nel path
         CDN_NO_EXT_PATTERNS = (
             "wixstatic.com/media/",
@@ -2602,12 +2850,15 @@ class FlazioImportAssistant:
                 if not Path(img_name).suffix:
                     img_name = img_name + (ext or ".jpg")
 
-                # Anti-duplicato per nome nella pagina
+                if full_url in seen_full_urls:
+                    continue
+                seen_full_urls.add(full_url)
+
+                # Anti-duplicato per nome nella pagina (per immagini diverse con stesso nome)
                 if img_name in seen_names:
                     stem   = Path(img_name).stem
                     suffix = Path(img_name).suffix or ext
                     img_name = f"{stem}_{abs(hash(full_url)) % 9999}{suffix}"
-
                 seen_names.add(img_name)
 
                 dest_path = dest_dir / img_name
@@ -2627,6 +2878,19 @@ class FlazioImportAssistant:
                         else:
                             self.stats["images_cached"] += 1
                         continue
+
+                # Se non è in cache, ma il file esiste (nome duplicato per immagini diverse), appendi un hash
+                if dest_path.exists():
+                    stem   = Path(img_name).stem
+                    suffix = Path(img_name).suffix or ext
+                    img_name = f"{stem}_{abs(hash(full_url)) % 9999}{suffix}"
+                    dest_path = dest_dir / img_name
+                    
+                    if dest_path.exists():
+                        continue # Skip estremo se ancora duplicato
+
+                # Aggiungo a un set locale per evitare task doppi nello stesso batch
+                seen_full_urls.add(full_url)
 
                 # ── Costruisce la catena di fallback URL ─────────────────────
                 # Wix: se l'URL normalizzato dà 404, proviamo:
@@ -2777,6 +3041,7 @@ class FlazioImportAssistant:
                         f"  🖼️  Immagini Scaricate         : {self.stats['images_downloaded']}\n"
                         f"  🔄 Immagini Saltate (in cache) : {self.stats['images_cached']}\n"
                         f"  ❌ Immagini Fallite (404/Err)  : {self.stats['images_failed']}\n"
+                        f"  🎥 Video Scaricati             : {self.stats['videos_downloaded']}\n"
                         f"  🔤 Font Convertiti             : {self.stats['fonts_converted']}\n"
                         f"  ♻️  Font Duplicati (saltati)   : {self.stats['fonts_duplicated']}\n"
                         f"  📄 Documenti Scaricati         : {self.stats['documents_downloaded']}\n"
